@@ -2,32 +2,135 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CALEB AI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CALEB AI - 夏以昼</title>
     <style>
-        body { margin: 0; background: #0a0a0a; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; }
-        #video-container { flex: 1; position: relative; background: #000; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-        video { width: 100%; height: 100%; object-fit: cover; }
-        #loader { position: absolute; display: none; flex-direction: column; align-items: center; background: rgba(0,0,0,0.5); padding: 20px; border-radius: 10px; }
-        .spinner { width: 30px; height: 30px; border: 3px solid #333; border-top: 3px solid #3d5afe; border-radius: 50%; animation: spin 1s linear infinite; }
+        :root { --primary: #3d5afe; --bg: #050505; }
+        
+        body { 
+            margin: 0; 
+            background: var(--bg); 
+            color: #fff; 
+            font-family: -apple-system, system-ui, sans-serif; 
+            display: flex; 
+            flex-direction: column; 
+            height: 100vh; 
+            overflow: hidden; 
+        }
+
+        /* 视频/图片容器：适配手机全屏 */
+        #video-container { 
+            flex: 1; 
+            position: relative; 
+            background: #000; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+        }
+
+        video { 
+            width: 100%; 
+            height: 100%; 
+            /* 修改点：改为 contain 确保图片完整显示不被裁剪，适应手机规格 */
+            object-fit: contain; 
+            background: #000;
+        }
+
+        /* 加载动画：居中显示 */
+        #loader { 
+            position: absolute; 
+            display: none; 
+            flex-direction: column; 
+            align-items: center; 
+            z-index: 10;
+            background: rgba(0,0,0,0.6);
+            padding: 20px;
+            border-radius: 15px;
+        }
+        .spinner { 
+            width: 40px; 
+            height: 40px; 
+            border: 4px solid rgba(255,255,255,0.1); 
+            border-top: 4px solid var(--primary); 
+            border-radius: 50%; 
+            animation: spin 1s linear infinite; 
+        }
         @keyframes spin { 100% { transform: rotate(360deg); } }
-        #ui { padding: 20px; background: #111; }
-        #chat-output { min-height: 40px; margin-bottom: 15px; color: #ccc; border-left: 3px solid #3d5afe; padding-left: 10px; }
-        .input-group { display: flex; gap: 10px; }
-        input { flex: 1; background: #222; border: 1px solid #444; color: #fff; padding: 10px; border-radius: 5px; }
-        button { background: #3d5afe; border: none; color: white; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
+
+        /* 对话交互区：半透明悬浮感 */
+        #ui-layer { 
+            background: linear-gradient(to top, rgba(0,0,0,1) 80%, transparent);
+            padding: 20px 20px 30px 20px;
+        }
+
+        #chat-output { 
+            font-size: 17px; 
+            line-height: 1.6;
+            margin-bottom: 20px; 
+            color: #efefef; 
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            min-height: 50px;
+            max-height: 100px;
+            overflow-y: auto;
+            text-align: center;
+        }
+
+        .input-group { 
+            display: flex; 
+            gap: 12px; 
+            align-items: center;
+        }
+
+        input { 
+            flex: 1; 
+            background: rgba(255,255,255,0.1); 
+            border: 1px solid rgba(255,255,255,0.2); 
+            border-radius: 25px; 
+            padding: 12px 20px; 
+            color: #fff; 
+            font-size: 16px; 
+            outline: none;
+        }
+
+        button { 
+            background: var(--primary); 
+            border: none; 
+            border-radius: 50%; 
+            width: 50px; 
+            height: 50px; 
+            color: #fff; 
+            font-weight: bold; 
+            cursor: pointer;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 15px rgba(61, 90, 254, 0.3);
+        }
+
+        button:active { transform: scale(0.95); }
     </style>
 </head>
 <body>
+
     <div id="video-container">
-        <video id="calebVideo" autoplay playsinline poster="https://raw.githubusercontent.com/ursalin/cal/main/mmexport1766446686555.jpg"></video>
-        <div id="loader"><div class="spinner"></div><p>正在准备回复...</p></div>
+        <video id="calebVideo" autoplay playsinline 
+            poster="https://raw.githubusercontent.com/ursalin/cal/main/mmexport1766446686555.jpg">
+        </video>
+        
+        <div id="loader">
+            <div class="spinner"></div>
+            <p style="margin-top:15px; font-size:14px;">正在感应...</p>
+        </div>
     </div>
-    <div id="ui">
-        <div id="chat-output">等待连接...</div>
+
+    <div id="ui-layer">
+        <div id="chat-output">你好，小蛋糕。</div>
         <div class="input-group">
-            <input type="text" id="userInput" placeholder="和TA说点什么...">
-            <button id="sendBtn">发送</button>
+            <input type="text" id="userInput" placeholder="想对他说什么？" autocomplete="off">
+            <button id="sendBtn">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+            </button>
         </div>
     </div>
 
@@ -35,38 +138,41 @@
         const video = document.getElementById('calebVideo');
         const loader = document.getElementById('loader');
         const output = document.getElementById('chat-output');
+        const sendBtn = document.getElementById('sendBtn');
 
-        document.getElementById('sendBtn').onclick = async () => {
+        sendBtn.onclick = async () => {
             const text = document.getElementById('userInput').value;
             if (!text) return;
 
+            // UI 反馈
             loader.style.display = 'flex';
-            output.innerText = "正在思考...";
+            video.style.opacity = '0.7';
+            output.style.opacity = '0.5';
 
             try {
-                const res = await fetch('/api/chat', {
+                const response = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ text })
                 });
-                const data = await res.json();
-                
-                output.innerText = data.reply; // 立即显示文字
+
+                const data = await response.json();
+                output.innerText = data.reply;
+                output.style.opacity = '1';
 
                 if (data.event_id) {
-                    checkStatus(data.event_id);
+                    pollVideo(data.event_id);
                 } else {
-                    loader.style.display = 'none';
-                    output.innerText += " (视频生成暂不可用)";
+                    hideLoader();
                 }
-            } catch (e) {
-                output.innerText = "连接失败，请检查网络";
-                loader.style.display = 'none';
+            } catch (err) {
+                output.innerText = "信号连接不稳定...";
+                hideLoader();
             }
         };
 
-        async function checkStatus(id) {
-            const url = `https://kwai-kolors-liveportrait.hf.space/gradio_api/call/predict/${id}`;
+        async function pollVideo(eventId) {
+            const url = `https://kwai-kolors-liveportrait.hf.space/gradio_api/call/predict/${eventId}`;
             const timer = setInterval(async () => {
                 try {
                     const res = await fetch(url);
@@ -75,12 +181,21 @@
                         if (result[0] && result[0].url) {
                             video.src = result[0].url;
                             video.loop = false;
-                            loader.style.display = 'none';
+                            video.oncanplay = () => {
+                                hideLoader();
+                                video.play();
+                            };
                             clearInterval(timer);
                         }
                     }
                 } catch (e) { console.error(e); }
             }, 2000);
+        }
+
+        function hideLoader() {
+            loader.style.display = 'none';
+            video.style.opacity = '1';
+            document.getElementById('userInput').value = '';
         }
     </script>
 </body>
