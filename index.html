@@ -2,46 +2,31 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>HiCALEB  夏以昼- </title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CALEB AI</title>
     <style>
-        :root { --primary-color: #3d5afe; --bg-dark: #0a0a0a; }
-        body { margin: 0; background: var(--bg-dark); color: #fff; font-family: -apple-system, sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        
-        /* 视频容器：保持夏以昼在屏幕中心 */
-        #video-container { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; background: #000; }
-        video { width: 100%; height: 100%; object-fit: cover; transition: opacity 0.5s; }
-        
-        /* 加载动画 */
-        #loader { position: absolute; display: none; flex-direction: column; align-items: center; z-index: 5; }
-        .spinner { width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        /* UI 交互区 */
-        #ui-layer { padding: 20px; background: linear-gradient(transparent, rgba(0,0,0,0.9)); position: relative; }
-        #status-text { font-size: 14px; color: #888; margin-bottom: 10px; text-align: center; height: 20px; }
-        #chat-output { font-size: 16px; margin-bottom: 15px; line-height: 1.5; color: #eee; max-height: 80px; overflow-y: auto; }
+        body { margin: 0; background: #0a0a0a; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; }
+        #video-container { flex: 1; position: relative; background: #000; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        #loader { position: absolute; display: none; flex-direction: column; align-items: center; background: rgba(0,0,0,0.5); padding: 20px; border-radius: 10px; }
+        .spinner { width: 30px; height: 30px; border: 3px solid #333; border-top: 3px solid #3d5afe; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        #ui { padding: 20px; background: #111; }
+        #chat-output { min-height: 40px; margin-bottom: 15px; color: #ccc; border-left: 3px solid #3d5afe; padding-left: 10px; }
         .input-group { display: flex; gap: 10px; }
-        input { flex: 1; background: rgba(255,255,255,0.1); border: 1px solid #333; border-radius: 25px; padding: 12px 20px; color: #fff; font-size: 16px; outline: none; }
-        button { background: var(--primary-color); border: none; border-radius: 25px; padding: 0 25px; color: #fff; font-weight: bold; cursor: pointer; transition: 0.3s; }
-        button:disabled { background: #444; opacity: 0.6; }
+        input { flex: 1; background: #222; border: 1px solid #444; color: #fff; padding: 10px; border-radius: 5px; }
+        button { background: #3d5afe; border: none; color: white; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
     </style>
 </head>
 <body>
-
     <div id="video-container">
-        <video id="calebVideo" autoplay playsinline loop></video>
-        <div id="loader">
-            <div class="spinner"></div>
-            <p style="font-size: 12px; margin-top: 10px;">Caleb正在组织语言...</p>
-        </div>
+        <video id="calebVideo" autoplay playsinline poster="https://raw.githubusercontent.com/ursalin/cal/main/mmexport1766446686555.jpg"></video>
+        <div id="loader"><div class="spinner"></div><p>正在准备回复...</p></div>
     </div>
-
-    <div id="ui-layer">
-        <div id="status-text">Caleb正在看着你...</div>
-        <div id="chat-output"></div>
+    <div id="ui">
+        <div id="chat-output">等待连接...</div>
         <div class="input-group">
-            <input type="text" id="userInput" placeholder="想对Ta说点什么？" autocomplete="off">
+            <input type="text" id="userInput" placeholder="和TA说点什么...">
             <button id="sendBtn">发送</button>
         </div>
     </div>
@@ -49,69 +34,53 @@
     <script>
         const video = document.getElementById('calebVideo');
         const loader = document.getElementById('loader');
-        const sendBtn = document.getElementById('sendBtn');
         const output = document.getElementById('chat-output');
-        const status = document.getElementById('status-text');
 
-        sendBtn.onclick = async () => {
+        document.getElementById('sendBtn').onclick = async () => {
             const text = document.getElementById('userInput').value;
             if (!text) return;
 
-            // 进入等待状态
-            sendBtn.disabled = true;
             loader.style.display = 'flex';
-            video.style.opacity = '0.5';
-            status.innerText = "正在同步感官连接...";
+            output.innerText = "正在思考...";
 
             try {
-                // 1. 发送给你的 Vercel 后端（即 api/chat.js）
-                const response = await fetch('/api/chat', {
+                const res = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text: text })
+                    body: JSON.stringify({ text })
                 });
+                const data = await res.json();
+                
+                output.innerText = data.reply; // 立即显示文字
 
-                const data = await response.json();
-                output.innerText = data.reply; // 显示 DeepSeek 的文字内容
-
-                // 2. 轮询结果（检查视频是否生成完毕）
                 if (data.event_id) {
-                    checkVideoStatus(data.event_id);
+                    checkStatus(data.event_id);
+                } else {
+                    loader.style.display = 'none';
+                    output.innerText += " (视频生成暂不可用)";
                 }
-            } catch (err) {
-                status.innerText = "连接暂时中断，请重试";
-                resetUI();
+            } catch (e) {
+                output.innerText = "连接失败，请检查网络";
+                loader.style.display = 'none';
             }
         };
 
-        async function checkVideoStatus(eventId) {
-            const pollUrl = `https://kwai-kolors-liveportrait.hf.space/gradio_api/call/predict/${eventId}`;
-            
+        async function checkStatus(id) {
+            const url = `https://kwai-kolors-liveportrait.hf.space/gradio_api/call/predict/${id}`;
             const timer = setInterval(async () => {
                 try {
-                    const res = await fetch(pollUrl);
-                    if (res.status === 200) {
+                    const res = await fetch(url);
+                    if (res.ok) {
                         const result = await res.json();
-                        // 拿到视频地址
                         if (result[0] && result[0].url) {
                             video.src = result[0].url;
-                            video.loop = false; // 说话视频不循环
-                            video.onended = () => { status.innerText = "Caleb 正在看着你..."; };
+                            video.loop = false;
+                            loader.style.display = 'none';
                             clearInterval(timer);
-                            resetUI();
                         }
                     }
-                } catch (e) {
-                    console.error("轮询出错", e);
-                }
-            }, 1000);
-        }
-
-        function resetUI() {
-            sendBtn.disabled = false;
-            loader.style.display = 'none';
-            video.style.opacity = '1';
-            document.getElementById('userInput').value = '';
+                } catch (e) { console.error(e); }
+            }, 2000);
         }
     </script>
 </body>
