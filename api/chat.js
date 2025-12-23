@@ -1,12 +1,17 @@
 export default async function handler(req, res) {
   try {
     const { text } = req.body;
+    const apiKey = process.env.DEEPSEEK_API_KEY;
 
-    // 1. 调用 DeepSeek
+    if (!apiKey) {
+      return res.status(200).json({ reply: "系统没找到你的 API 钥匙，请确认 Vercel 变量名是否叫 DEEPSEEK_API_KEY" });
+    }
+
+    // 1. 调用 DeepSeek 获取文字
     const dsRes = await fetch('https://api.deepseek.com/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.DEEPSEEK_API_KEY}`,
+        'Authorization': `Bearer ${apiKey.trim()}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -19,35 +24,41 @@ export default async function handler(req, res) {
     });
 
     const dsData = await dsRes.json();
-    // 增加报错检查
-    if (!dsData.choices) {
-        throw new Error('DeepSeek Key 可能无效或余额不足');
+    const replyText = dsData.choices?.[0]?.message?.content || "现在不想说话。";
+
+    // 2. 调用 LivePortrait (增加容错)
+    let event_id = null;
+    try {
+      const lpRes = await fetch('https://kwai-kolors-liveportrait.hf.space/gradio_api/call/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          data: [
+            "https://raw.githubusercontent.com/ursalin/cal/main/mmexport1766446686555.jpg", 
+            replyText,
+            null, 
+            true
+          ]
+        })
+      });
+
+      // 关键：先检查返回的是不是 JSON
+      const contentType = lpRes.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        const lpData = await lpRes.json();
+        event_id = lpData.event_id;
+      }
+    } catch (e) {
+      console.error("视频生成接口调用失败，仅返回文字");
     }
-    const replyText = dsData.choices[0].message.content;
 
-    // 2. 调用 LivePortrait
-    const lpRes = await fetch('https://kwai-kolors-liveportrait.hf.space/gradio_api/call/predict', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        data: [
-          "https://raw.githubusercontent.com/ursalin/cal/main/mmexport1766446686555.jpg", 
-          replyText,
-          null, 
-          true
-        ]
-      })
-    });
-    const lpData = await lpRes.json();
-
-    // 明确返回 reply 字段，防止前端 undefined
+    // 无论视频通没通，先把文字发给前端
     res.status(200).json({ 
       reply: replyText, 
-      event_id: lpData.event_id 
+      event_id: event_id 
     });
 
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ reply: "现在不想说话，请检查 API 设置。", error: error.message });
+    res.status(200).json({ reply: "秦彻的信号塔倒了: " + error.message });
   }
 }
