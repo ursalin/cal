@@ -1,8 +1,8 @@
 export default async function handler(req, res) {
-  const { text } = req.body;
-
   try {
-    // 1. 调用 DeepSeek 获取对话文本
+    const { text } = req.body;
+
+    // 1. 调用 DeepSeek
     const dsRes = await fetch('https://api.deepseek.com/chat/completions', {
       method: 'POST',
       headers: {
@@ -17,17 +17,21 @@ export default async function handler(req, res) {
         ]
       })
     });
+
     const dsData = await dsRes.json();
+    // 增加报错检查
+    if (!dsData.choices) {
+        throw new Error('DeepSeek Key 可能无效或余额不足');
+    }
     const replyText = dsData.choices[0].message.content;
 
-    // 2. 发起 LivePortrait 视频生成请求
-    // 注意：这里需要你把照片直链填在下面的 URL 处
+    // 2. 调用 LivePortrait
     const lpRes = await fetch('https://kwai-kolors-liveportrait.hf.space/gradio_api/call/predict', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         data: [
-          "https://raw.githubusercontent.com/ursalin/cal/refs/heads/main/mmexport1766446686555.jpg", // 👈 记得换成你的照片链接！
+          "https://raw.githubusercontent.com/ursalin/cal/main/mmexport1766446686555.jpg", 
           replyText,
           null, 
           true
@@ -36,13 +40,14 @@ export default async function handler(req, res) {
     });
     const lpData = await lpRes.json();
 
-    // 返回文字和任务 ID 给前端
+    // 明确返回 reply 字段，防止前端 undefined
     res.status(200).json({ 
       reply: replyText, 
       event_id: lpData.event_id 
     });
 
   } catch (error) {
-    res.status(500).json({ error: "连接大脑失败" });
+    console.error(error);
+    res.status(500).json({ reply: "现在不想说话，请检查 API 设置。", error: error.message });
   }
 }
