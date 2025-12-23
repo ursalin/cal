@@ -27,7 +27,7 @@ export default async function handler(req, res) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         data: [
-          "你的Caleb照片直链地址.jpg", // 👈 记得换成你的照片链接！
+          "https://raw.githubusercontent.com/ursalin/cal/refs/heads/main/mmexport1766446686555.jpg", // 👈 记得换成你的照片链接！
           replyText,
           null, 
           true
