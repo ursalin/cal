@@ -2,75 +2,117 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Hi CALEB- 夏以昼</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>HiCALEB  夏以昼- </title>
     <style>
-        /* 手机全屏样式 */
-        body { margin: 0; background: #000; color: #fff; font-family: -apple-system; overflow: hidden; }
-        #app { position: relative; width: 100vw; height: 100vh; display: flex; flex-direction: column; }
+        :root { --primary-color: #3d5afe; --bg-dark: #0a0a0a; }
+        body { margin: 0; background: var(--bg-dark); color: #fff; font-family: -apple-system, sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         
-        /* 视频显示区域 */
-        #video-wrap { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-        video { width: 100%; height: 100%; object-fit: cover; } /* 让夏以昼铺满屏幕 */
+        /* 视频容器：保持夏以昼在屏幕中心 */
+        #video-container { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; background: #000; }
+        video { width: 100%; height: 100%; object-fit: cover; transition: opacity 0.5s; }
+        
+        /* 加载动画 */
+        #loader { position: absolute; display: none; flex-direction: column; align-items: center; z-index: 5; }
+        .spinner { width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        /* 交互输入区 */
-        #ui-layer { position: absolute; bottom: 30px; left: 0; right: 0; padding: 20px; background: linear-gradient(transparent, rgba(0,0,0,0.8)); }
-        #chat-output { font-size: 16px; margin-bottom: 10px; color: #eee; text-shadow: 1px 1px 2px #000; min-height: 24px; }
+        /* UI 交互区 */
+        #ui-layer { padding: 20px; background: linear-gradient(transparent, rgba(0,0,0,0.9)); position: relative; }
+        #status-text { font-size: 14px; color: #888; margin-bottom: 10px; text-align: center; height: 20px; }
+        #chat-output { font-size: 16px; margin-bottom: 15px; line-height: 1.5; color: #eee; max-height: 80px; overflow-y: auto; }
         .input-group { display: flex; gap: 10px; }
-        input { flex: 1; padding: 12px; border-radius: 20px; border: none; background: rgba(255,255,255,0.2); color: #fff; outline: none; }
-        button { padding: 0 20px; border-radius: 20px; border: none; background: #4f83cc; color: #fff; font-weight: bold; }
+        input { flex: 1; background: rgba(255,255,255,0.1); border: 1px solid #333; border-radius: 25px; padding: 12px 20px; color: #fff; font-size: 16px; outline: none; }
+        button { background: var(--primary-color); border: none; border-radius: 25px; padding: 0 25px; color: #fff; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        button:disabled { background: #444; opacity: 0.6; }
     </style>
 </head>
 <body>
 
-<div id="app">
-    <div id="video-wrap">
-        <video id="calebVideo" autoplay playsinline></video>
+    <div id="video-container">
+        <video id="calebVideo" autoplay playsinline loop></video>
+        <div id="loader">
+            <div class="spinner"></div>
+            <p style="font-size: 12px; margin-top: 10px;">Caleb正在组织语言...</p>
+        </div>
     </div>
 
     <div id="ui-layer">
-        <div id="chat-output">Caleb正在看着你...</div>
+        <div id="status-text">Caleb 正在看着你...</div>
+        <div id="chat-output"></div>
         <div class="input-group">
-            <input type="text" id="userInput" placeholder="跟Caleb说点什么...">
+            <input type="text" id="userInput" placeholder="想对Ta说点什么？" autocomplete="off">
             <button id="sendBtn">发送</button>
         </div>
     </div>
-</div>
 
-<script>
-    // --- 核心配置区（填入你的 KEY） ---
-    const DS_KEY = "sk-fac7243e524b45cc91f1142f793e1aff";
-    const DID_KEY = "dXJzYWxpbjIwMjNAZ21haWwuY29t:r8iWAZhPkL9LWzRdMKVzz"; // 记得是 "Basic xxxxxxxx"
-    // -----------------------------
+    <script>
+        const video = document.getElementById('calebVideo');
+        const loader = document.getElementById('loader');
+        const sendBtn = document.getElementById('sendBtn');
+        const output = document.getElementById('chat-output');
+        const status = document.getElementById('status-text');
 
-    const videoEl = document.getElementById('calebVideo');
-    const outputEl = document.getElementById('chat-output');
-    const inputEl = document.getElementById('userInput');
-    const sendBtn = document.getElementById('sendBtn');
+        sendBtn.onclick = async () => {
+            const text = document.getElementById('userInput').value;
+            if (!text) return;
 
-    // 逻辑：用户点发送 -> DeepSeek 思考 -> D-ID 驱动
-    sendBtn.onclick = async () => {
-        const text = inputEl.value;
-        if(!text) return;
-        
-        outputEl.innerText = "正在思考...";
-        
-        // 1. 接入 DeepSeek 大脑
-        const dsRes = await fetch('https://api.deepseek.com/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${DS_KEY}` },
-            body: JSON.stringify({
-                model: "deepseek-chat",
-                messages: [{role: "system", content: "你现在是游戏love and deepspace角色Caleb。"}, {role: "user", content: text}]
-            })
-        });
-        const dsData = await dsRes.json();
-        const reply = dsData.choices[0].message.content;
-        outputEl.innerText = reply;
+            // 进入等待状态
+            sendBtn.disabled = true;
+            loader.style.display = 'flex';
+            video.style.opacity = '0.5';
+            status.innerText = "正在同步感官连接...";
 
-        // 2. 驱动 D-ID (此处需建立实时流，建议使用 D-ID 提供的流式脚本或 SDK)
-        // 提示：手机端运行建议使用 Vercel 反代 API，避免跨域！
-    };
-</script>
+            try {
+                // 1. 发送给你的 Vercel 后端（即 api/chat.js）
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: text })
+                });
+
+                const data = await response.json();
+                output.innerText = data.reply; // 显示 DeepSeek 的文字内容
+
+                // 2. 轮询结果（检查视频是否生成完毕）
+                if (data.event_id) {
+                    checkVideoStatus(data.event_id);
+                }
+            } catch (err) {
+                status.innerText = "连接暂时中断，请重试";
+                resetUI();
+            }
+        };
+
+        async function checkVideoStatus(eventId) {
+            const pollUrl = `https://kwai-kolors-liveportrait.hf.space/gradio_api/call/predict/${eventId}`;
+            
+            const timer = setInterval(async () => {
+                try {
+                    const res = await fetch(pollUrl);
+                    if (res.status === 200) {
+                        const result = await res.json();
+                        // 拿到视频地址
+                        if (result[0] && result[0].url) {
+                            video.src = result[0].url;
+                            video.loop = false; // 说话视频不循环
+                            video.onended = () => { status.innerText = "Caleb 正在看着你..."; };
+                            clearInterval(timer);
+                            resetUI();
+                        }
+                    }
+                } catch (e) {
+                    console.error("轮询出错", e);
+                }
+            }, 1000);
+        }
+
+        function resetUI() {
+            sendBtn.disabled = false;
+            loader.style.display = 'none';
+            video.style.opacity = '1';
+            document.getElementById('userInput').value = '';
+        }
+    </script>
 </body>
 </html>
