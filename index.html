@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Hi CALEB- 夏以昼</title>
+    <style>
+        /* 手机全屏样式 */
+        body { margin: 0; background: #000; color: #fff; font-family: -apple-system; overflow: hidden; }
+        #app { position: relative; width: 100vw; height: 100vh; display: flex; flex-direction: column; }
+        
+        /* 视频显示区域 */
+        #video-wrap { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        video { width: 100%; height: 100%; object-fit: cover; } /* 让夏以昼铺满屏幕 */
+
+        /* 交互输入区 */
+        #ui-layer { position: absolute; bottom: 30px; left: 0; right: 0; padding: 20px; background: linear-gradient(transparent, rgba(0,0,0,0.8)); }
+        #chat-output { font-size: 16px; margin-bottom: 10px; color: #eee; text-shadow: 1px 1px 2px #000; min-height: 24px; }
+        .input-group { display: flex; gap: 10px; }
+        input { flex: 1; padding: 12px; border-radius: 20px; border: none; background: rgba(255,255,255,0.2); color: #fff; outline: none; }
+        button { padding: 0 20px; border-radius: 20px; border: none; background: #4f83cc; color: #fff; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <div id="video-wrap">
+        <video id="calebVideo" autoplay playsinline></video>
+    </div>
+
+    <div id="ui-layer">
+        <div id="chat-output">Caleb正在看着你...</div>
+        <div class="input-group">
+            <input type="text" id="userInput" placeholder="跟Caleb说点什么...">
+            <button id="sendBtn">发送</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 核心配置区（填入你的 KEY） ---
+    const DS_KEY = "sk-fac7243e524b45cc91f1142f793e1aff";
+    const DID_KEY = "dXJzYWxpbjIwMjNAZ21haWwuY29t:r8iWAZhPkL9LWzRdMKVzz"; // 记得是 "Basic xxxxxxxx"
+    // -----------------------------
+
+    const videoEl = document.getElementById('calebVideo');
+    const outputEl = document.getElementById('chat-output');
+    const inputEl = document.getElementById('userInput');
+    const sendBtn = document.getElementById('sendBtn');
+
+    // 逻辑：用户点发送 -> DeepSeek 思考 -> D-ID 驱动
+    sendBtn.onclick = async () => {
+        const text = inputEl.value;
+        if(!text) return;
+        
+        outputEl.innerText = "正在思考...";
+        
+        // 1. 接入 DeepSeek 大脑
+        const dsRes = await fetch('https://api.deepseek.com/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${DS_KEY}` },
+            body: JSON.stringify({
+                model: "deepseek-chat",
+                messages: [{role: "system", content: "你现在是游戏love and deepspace角色Caleb。"}, {role: "user", content: text}]
+            })
+        });
+        const dsData = await dsRes.json();
+        const reply = dsData.choices[0].message.content;
+        outputEl.innerText = reply;
+
+        // 2. 驱动 D-ID (此处需建立实时流，建议使用 D-ID 提供的流式脚本或 SDK)
+        // 提示：手机端运行建议使用 Vercel 反代 API，避免跨域！
+    };
+</script>
+</body>
+</html>
