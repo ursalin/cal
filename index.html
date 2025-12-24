@@ -1,175 +1,41 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CALEB AI</title>
-    <style>
-        :root { --primary: #3d5afe; --bg: #0a0a0a; }
-        
-        body { 
-            margin: 0; 
-            background: var(--bg); 
-            color: #fff; 
-            font-family: sans-serif; 
-            display: flex; 
-            flex-direction: column; 
-            height: 100vh; /* 固定总高度为屏幕高度 */
-        }
+<style>
+    :root { --primary: #7ba2ff; --bg: #050505; } /* 夏以昼可以用浅一点的蓝色 */
+    body { margin: 0; background: var(--bg); color: #fff; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
 
-        /* 1. 视频区域：给Caleb固定比例的房间，不再挤占全屏 */
-        #video-container { 
-            width: 100%;
-            height: 60vh; /* 只占屏幕高度的 60% */
-            position: relative; 
-            background: #000; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center;
-            border-bottom: 1px solid #222;
-        }
+    /* 视频容器：调整为 70% 高度 */
+    #video-container { 
+        width: 100%; 
+        height: 70vh; 
+        position: relative; 
+        background: #000; 
+        overflow: hidden; 
+    }
 
-        video { 
-            width: 100%; 
-            height: 100%; 
-            /* 关键修改：用 contain 保证宽图能看全，配合 60vh 防止挤压 */
-            object-fit: contain; 
-        }
+    video { 
+        width: 100%; 
+        height: 100%; 
+        /* 修改点：用 cover 让人物填满区域，不再有左右黑边 */
+        object-fit: cover; 
+        /* 修改点：对齐图片顶部，确保夏以昼的脸在正中间，不被切掉 */
+        object-position: center 10%; 
+    }
 
-        /* 2. 对话区域：固定在下方，保证可见 */
-        #ui-layer { 
-            flex: 1; /* 占据剩下的 40% 空间 */
-            display: flex;
-            flex-direction: column;
-            padding: 15px;
-            background: #111;
-            box-sizing: border-box;
-        }
+    #ui-layer { 
+        flex: 1; 
+        background: #111; 
+        padding: 15px; 
+        display: flex; 
+        flex-direction: column; 
+        border-top: 1px solid #222; 
+    }
 
-        #chat-output { 
-            flex: 1; /* 文字区自动撑开 */
-            font-size: 16px; 
-            line-height: 1.5;
-            color: #ddd; 
-            overflow-y: auto; /* 文字多了可以滚动 */
-            margin-bottom: 10px;
-            padding: 10px;
-            background: rgba(255,255,255,0.03);
-            border-radius: 8px;
-        }
-
-        .input-group { 
-            display: flex; 
-            gap: 10px;
-            height: 50px;
-        }
-
-        input { 
-            flex: 1; 
-            background: #222; 
-            border: 1px solid #444; 
-            border-radius: 25px; 
-            padding: 0 15px; 
-            color: #fff; 
-            font-size: 16px; 
-            outline: none;
-        }
-
-        button { 
-            background: var(--primary); 
-            border: none; 
-            border-radius: 25px; 
-            padding: 0 20px; 
-            color: #fff; 
-            font-weight: bold; 
-            cursor: pointer;
-        }
-
-        /* 加载提示 */
-        #loader { 
-            position: absolute; 
-            display: none; 
-            flex-direction: column; 
-            align-items: center; 
-            background: rgba(0,0,0,0.7);
-            padding: 15px;
-            border-radius: 10px;
-            z-index: 10;
-        }
-        .spinner { width: 30px; height: 30px; border: 3px solid #333; border-top: 3px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
-    </style>
-</head>
-<body>
-
-    <div id="video-container">
-        <video id="calebVideo" autoplay playsinline 
-            poster="https://raw.githubusercontent.com/ursalin/cal/main/mmexport1766446686555.jpg">
-        </video>
-        <div id="loader"><div class="spinner"></div><p style="font-size:12px; margin-top:10px;">连接感官中...</p></div>
-    </div>
-
-    <div id="ui-layer">
-        <div id="chat-output">正在看着你...</div>
-        <div class="input-group">
-            <input type="text" id="userInput" placeholder="输入消息..." autocomplete="off">
-            <button id="sendBtn">发送</button>
-        </div>
-    </div>
-
-    <script>
-        const video = document.getElementById('calebVideo');
-        const loader = document.getElementById('loader');
-        const output = document.getElementById('chat-output');
-        const sendBtn = document.getElementById('sendBtn');
-
-        sendBtn.onclick = async () => {
-            const text = document.getElementById('userInput').value;
-            if (!text) return;
-
-            loader.style.display = 'flex';
-            output.innerText = "思考中...";
-
-            try {
-                const response = await fetch('/api/chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text })
-                });
-                const data = await response.json();
-                output.innerText = data.reply;
-
-                if (data.event_id) {
-                    pollVideo(data.event_id);
-                } else {
-                    loader.style.display = 'none';
-                }
-            } catch (err) {
-                output.innerText = "连接中断，请重试";
-                loader.style.display = 'none';
-            }
-        };
-
-        async function pollVideo(eventId) {
-            const url = `https://kwai-kolors-liveportrait.hf.space/gradio_api/call/predict/${eventId}`;
-            const timer = setInterval(async () => {
-                try {
-                    const res = await fetch(url);
-                    if (res.ok) {
-                        const result = await res.json();
-                        if (result[0] && result[0].url) {
-                            video.src = result[0].url;
-                            video.loop = false;
-                            video.oncanplay = () => {
-                                loader.style.display = 'none';
-                                video.play();
-                            };
-                            clearInterval(timer);
-                        }
-                    }
-                } catch (e) { console.error(e); }
-            }, 2000);
-        }
-    </script>
-</body>
-</html>
+    #chat-output { flex: 1; font-size: 16px; color: #eee; text-align: center; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
+    .input-group { display: flex; gap: 10px; padding-bottom: 10px; }
+    input { flex: 1; background: #222; border: 1px solid #333; border-radius: 20px; padding: 12px 15px; color: #fff; outline: none; }
+    button { background: var(--primary); border: none; border-radius: 20px; padding: 0 20px; color: #fff; font-weight: bold; }
+    
+    /* 加载中小动画 */
+    #loader { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: none; flex-direction: column; align-items: center; z-index: 5; }
+    .dot-loader { width: 40px; height: 40px; border: 3px solid rgba(255,255,255,0.2); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s infinite linear; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+</style>
