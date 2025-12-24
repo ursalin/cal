@@ -3,101 +3,105 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>和我聊聊吧 - 夏以昼</title>
+    <title>夏以昼 - 实时交互</title>
     <style>
-        :root { --main-blue: #7ba2ff; }
-        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        
-        /* 视频区：确保始终有底图，不会全黑 */
-        #video-container { 
-            width: 100%; height: 65vh; position: relative; background: #000;
-            display: flex; align-items: center; justify-content: center;
+        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; }
+        #video-container { width: 100%; height: 60vh; position: relative; background: #111; }
+        video { width: 100%; height: 100%; object-fit: cover; object-position: center top; }
+        #loader { 
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            display: none; flex-direction: column; align-items: center; background: rgba(0,0,0,0.6);
+            padding: 20px; border-radius: 12px; z-index: 99;
         }
-        video { 
-            width: 100%; height: 100%; object-fit: cover; object-position: center 15%; 
-            background: url('https://raw.githubusercontent.com/ursalin/cal/main/mmexport1766446686555.jpg') no-repeat center center;
-            background-size: cover;
-        }
-
-        /* 加载动画 */
-        #loader { position: absolute; display: none; flex-direction: column; align-items: center; z-index: 10; background: rgba(0,0,0,0.5); padding: 15px; border-radius: 10px; }
-        .spinner { width: 30px; height: 30px; border: 3px solid #333; border-top: 3px solid var(--main-blue); border-radius: 50%; animation: spin 1s linear infinite; }
+        .spinner { width: 30px; height: 30px; border: 3px solid #444; border-top: 3px solid #7ba2ff; border-radius: 50%; animation: spin 1s infinite linear; }
         @keyframes spin { 100% { transform: rotate(360deg); } }
-
-        /* 对话区 */
-        #ui-layer { flex: 1; background: #111; padding: 20px; display: flex; flex-direction: column; border-top: 1px solid #222; }
-        #chat-output { flex: 1; font-size: 17px; color: #ddd; text-align: center; display: flex; align-items: center; justify-content: center; margin-bottom: 15px; }
-        .input-group { display: flex; gap: 10px; height: 45px; }
-        input { flex: 1; background: #222; border: 1px solid #333; border-radius: 22px; padding: 0 15px; color: #fff; outline: none; }
-        button { background: var(--main-blue); border: none; border-radius: 22px; padding: 0 20px; color: #fff; font-weight: bold; cursor: pointer; }
+        #ui-layer { flex: 1; background: #0a0a0a; padding: 20px; display: flex; flex-direction: column; border-top: 1px solid #222; }
+        #chat-output { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; text-align: center; }
+        .input-box { display: flex; gap: 10px; margin-top: 10px; }
+        input { flex: 1; background: #1a1a1a; border: 1px solid #333; border-radius: 25px; padding: 12px 20px; color: #fff; outline: none; }
+        button { background: #7ba2ff; border: none; border-radius: 25px; padding: 0 25px; color: #fff; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div id="video-container">
-        <video id="calebVideo" autoplay playsinline poster="https://raw.githubusercontent.com/ursalin/cal/main/mmexport1766446686555.jpg"></video>
-        <div id="loader"><div class="spinner"></div><p style="font-size:12px; margin-top:10px;">哥正在准备...</p></div>
+<div id="video-container">
+    <video id="calebVideo" autoplay playsinline muted poster="https://raw.githubusercontent.com/ursalin/cal/main/mmexport1766446686555.jpg"></video>
+    <div id="loader"><div class="spinner"></div><p style="font-size:12px;margin-top:8px">正在准备视频...</p></div>
+</div>
+
+<div id="ui-layer">
+    <div id="chat-output">想跟哥说什么？</div>
+    <div class="input-box">
+        <input type="text" id="userInput" placeholder="输入消息...">
+        <button id="sendBtn">发送</button>
     </div>
+</div>
 
-    <div id="ui-layer">
-        <div id="chat-output">早呀，想跟哥说点什么？</div>
-        <div class="input-group">
-            <input type="text" id="userInput" placeholder="输入消息..." autocomplete="off">
-            <button id="sendBtn">发送</button>
-        </div>
-    </div>
+<script>
+    const video = document.getElementById('calebVideo');
+    const loader = document.getElementById('loader');
+    const output = document.getElementById('chat-output');
 
-    <script>
-        const video = document.getElementById('calebVideo');
-        const loader = document.getElementById('loader');
-        const output = document.getElementById('chat-output');
+    document.getElementById('sendBtn').onclick = async () => {
+        const text = document.getElementById('userInput').value;
+        if (!text) return;
 
-        document.getElementById('sendBtn').onclick = async () => {
-            const text = document.getElementById('userInput').value;
-            if (!text) return;
+        // 强行开启圈圈
+        loader.style.display = 'flex';
+        output.innerText = "哥哥正在听...";
 
-            loader.style.display = 'flex';
-            output.innerText = "正在听你说话...";
+        try {
+            const res = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text })
+            });
+            const data = await res.json();
+            output.innerText = data.reply;
 
-            try {
-                const res = await fetch('/api/chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text })
-                });
-                const data = await res.json();
-                output.innerText = data.reply;
-
-                if (data.event_id) {
-                    checkStatus(data.event_id);
-                } else {
-                    loader.style.display = 'none';
-                }
-            } catch (e) {
-                output.innerText = "信号不太好，再说一次？";
+            if (data.event_id) {
+                pollVideo(data.event_id);
+            } else {
                 loader.style.display = 'none';
             }
-        };
-
-        async function checkStatus(id) {
-            const url = `https://kwai-kolors-liveportrait.hf.space/gradio_api/call/predict/${id}`;
-            const timer = setInterval(async () => {
-                try {
-                    const res = await fetch(url);
-                    if (res.ok) {
-                        const result = await res.json();
-                        if (result[0] && result[0].url) {
-                            video.src = result[0].url;
-                            video.oncanplay = () => {
-                                loader.style.display = 'none';
-                                video.play();
-                            };
-                            clearInterval(timer);
-                        }
-                    }
-                } catch (e) { console.error(e); }
-            }, 2000);
+        } catch (e) {
+            output.innerText = "信号不太好...";
+            loader.style.display = 'none';
         }
-    </script>
+    };
+
+    async function pollVideo(id) {
+        const pollUrl = `https://kwai-kolors-liveportrait.hf.space/gradio_api/call/predict/${id}`;
+        
+        // 每隔 2 秒检查一次状态
+        const interval = setInterval(async () => {
+            try {
+                const response = await fetch(pollUrl);
+                const text = await response.text();
+                
+                // 关键：在返回的文本流中寻找视频链接
+                if (text.includes("data:")) {
+                    const match = text.match(/https?:\/\/[^"']+\.mp4/);
+                    if (match) {
+                        video.src = match[0];
+                        video.muted = false; // 尝试开启声音
+                        video.play().catch(() => {
+                            console.log("需要用户点击才能播放声音");
+                            video.muted = true; // 失败则继续静音播放
+                            video.play();
+                        });
+                        loader.style.display = 'none';
+                        clearInterval(interval);
+                    }
+                }
+            } catch (e) {
+                console.error("轮询中...");
+            }
+        }, 2000);
+
+        // 如果 60 秒还没成功，强制停止
+        setTimeout(() => clearInterval(interval), 60000);
+    }
+</script>
 </body>
 </html>
