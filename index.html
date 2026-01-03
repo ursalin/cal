@@ -1,32 +1,32 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>夏以昼</title>
     <style>
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; }
-        #video-wrap { width: 100%; height: 60vh; position: relative; }
+        #video-container { width: 100%; height: 60vh; position: relative; background: #111; }
         video { width: 100%; height: 100%; object-fit: cover; background: url('https://raw.githubusercontent.com/ursalin/cal/main/mmexport1766446686555.jpg') center/cover; }
-        #loader { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); display: none; text-align: center; z-index: 10; background: rgba(0,0,0,0.7); padding: 20px; border-radius: 12px; }
-        .spin { width: 35px; height: 35px; border: 4px solid #333; border-top-color: #7ba2ff; border-radius: 50%; animation: s 1s infinite linear; margin-bottom: 10px; }
-        @keyframes s { to { transform: rotate(360deg); } }
-        #ui { padding: 20px; height: 35vh; display: flex; flex-direction: column; background: #111; }
-        #msg { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 18px; text-align: center; color: #eee; }
-        .row { display: flex; gap: 10px; }
-        input { flex: 1; padding: 12px 18px; border-radius: 25px; border: 1px solid #333; background: #222; color: #fff; outline: none; }
-        button { padding: 0 25px; border-radius: 25px; border: none; background: #7ba2ff; color: #fff; font-weight: bold; cursor: pointer; }
+        #loader { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: none; text-align: center; z-index: 10; background: rgba(0,0,0,0.7); padding: 20px; border-radius: 12px; }
+        .spinner { width: 30px; height: 30px; border: 3px solid #333; border-top-color: #7ba2ff; border-radius: 50%; animation: spin 1s infinite linear; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #ui { padding: 20px; height: 40vh; display: flex; flex-direction: column; background: #0a0a0a; border-top: 1px solid #222; box-sizing: border-box; }
+        #output { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 18px; text-align: center; margin-bottom: 10px; }
+        .input-row { display: flex; gap: 10px; }
+        input { flex: 1; padding: 12px 20px; border-radius: 25px; border: 1px solid #333; background: #1a1a1a; color: #fff; outline: none; }
+        button { background: #7ba2ff; border: none; border-radius: 25px; padding: 0 25px; color: #fff; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
-    <div id="video-wrap">
+    <div id="video-container">
         <video id="v" playsinline muted poster="https://raw.githubusercontent.com/ursalin/cal/main/mmexport1766446686555.jpg"></video>
-        <div id="loader"><div class="spin"></div><p id="lt">哥正在准备...</p></div>
+        <div id="loader"><div class="spinner"></div><p style="font-size:12px; margin-top:10px;">哥正在准备视频...</p></div>
     </div>
     <div id="ui">
-        <div id="msg">想跟哥哥说什么？</div>
-        <div class="row">
-            <input id="in" type="text" placeholder="给哥哥发消息...">
+        <div id="output">想跟哥说什么？</div>
+        <div class="input-row">
+            <input id="in" type="text" placeholder="输入消息...">
             <button id="btn">发送</button>
         </div>
     </div>
@@ -34,88 +34,59 @@
     <script>
         const v = document.getElementById('v');
         const l = document.getElementById('loader');
-        const m = document.getElementById('msg');
-        
+        const o = document.getElementById('output');
+
         document.getElementById('btn').onclick = async () => {
             const val = document.getElementById('in').value;
             if(!val) return;
 
             l.style.display = 'block'; 
-            m.innerText = "正在听...";
+            o.innerText = "正在听你说...";
 
             try {
-                const r = await fetch('/api/chat', {
+                const response = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ text: val })
                 });
-                const d = await r.json();
-                
-                if (d.error) {
-                    m.innerText = "出错了: " + d.error;
-                    l.style.display = 'none';
-                    return;
+
+                // 防御性检查：如果不是 JSON，直接报错不解析
+                const contentType = response.headers.get("content-type");
+                if (!contentType || !contentType.includes("application/json")) {
+                    throw new Error("服务器返回了错误页面，请检查 Vercel 后端日志");
                 }
 
-                m.innerText = d.reply;
+                const data = await response.json();
+                o.innerText = data.reply;
 
-                if (d.event_id) {
-                    startPoll(d.event_id);
+                if (data.event_id) {
+                    pollVideo(data.event_id);
                 } else {
                     l.style.display = 'none';
                 }
             } catch (err) {
-                m.innerText = "连接失败，请稍后再试";
+                o.innerText = "（哥有点头晕）请检查后端日志";
+                console.error(err);
                 l.style.display = 'none';
             }
         };
 
-        function startPoll(id) {
+        async function pollVideo(id) {
             const timer = setInterval(async () => {
                 try {
                     const res = await fetch(`https://kwai-kolors-liveportrait.hf.space/gradio_api/call/predict/${id}`);
-                    if (!res.ok) return;
-
                     const txt = await res.text();
-                    console.log("正在解析数据...");
-
-                    // 暴力匹配：在返回的所有字符中寻找 .mp4 链接
-                    // 只要包含 http 并且以 .mp4 结尾的一串字符，全抓出来
                     const match = txt.match(/https?:\/\/[^"']+\.mp4/);
-                    
-                    if (match && match[0]) {
-                        console.log("找到视频地址:", match[0]);
+                    if (match) {
                         v.src = match[0];
-                        v.muted = false; // 尝试开启声音
-                        
-                        // 处理浏览器自动播放策略
-                        const playPromise = v.play();
-                        if (playPromise !== undefined) {
-                            playPromise.then(() => {
-                                l.style.display = 'none';
-                                clearInterval(timer);
-                            }).catch(error => {
-                                console.log("静音播放以绕过限制");
-                                v.muted = true;
-                                v.play();
-                                l.style.display = 'none';
-                                clearInterval(timer);
-                            });
-                        }
+                        v.muted = false;
+                        v.play().catch(() => { v.muted = true; v.play(); });
+                        l.style.display = 'none';
+                        clearInterval(timer);
                     }
-                } catch (e) {
-                    console.error("轮询异常:", e);
-                }
+                } catch (e) {}
             }, 2000);
-
-            // 45秒超时自动停止，防止死循环
-            setTimeout(() => {
-                if(l.style.display === 'block') {
-                    l.style.display = 'none';
-                    clearInterval(timer);
-                    m.innerText = "哥今天有点累，视频没捏出来...";
-                }
-            }, 45000);
+            setTimeout(() => { clearInterval(timer); l.style.display = 'none'; }, 60000);
         }
     </script>
 </body>
