@@ -1,107 +1,86 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>夏以昼 - 实时交互</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>夏以昼</title>
     <style>
-        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; height: 100vh; }
-        #video-container { width: 100%; height: 60vh; position: relative; background: #111; }
-        video { width: 100%; height: 100%; object-fit: cover; object-position: center top; }
-        #loader { 
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            display: none; flex-direction: column; align-items: center; background: rgba(0,0,0,0.6);
-            padding: 20px; border-radius: 12px; z-index: 99;
-        }
-        .spinner { width: 30px; height: 30px; border: 3px solid #444; border-top: 3px solid #7ba2ff; border-radius: 50%; animation: spin 1s infinite linear; }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
-        #ui-layer { flex: 1; background: #0a0a0a; padding: 20px; display: flex; flex-direction: column; border-top: 1px solid #222; }
-        #chat-output { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; text-align: center; }
-        .input-box { display: flex; gap: 10px; margin-top: 10px; }
-        input { flex: 1; background: #1a1a1a; border: 1px solid #333; border-radius: 25px; padding: 12px 20px; color: #fff; outline: none; }
-        button { background: #7ba2ff; border: none; border-radius: 25px; padding: 0 25px; color: #fff; font-weight: bold; }
+        body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; }
+        #video-wrap { width: 100%; height: 60vh; position: relative; }
+        video { width: 100%; height: 100%; object-fit: cover; background: url('https://raw.githubusercontent.com/ursalin/cal/main/mmexport1766446686555.jpg') center/cover; }
+        #loader { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); display: none; text-align: center; z-index: 10; background: rgba(0,0,0,0.6); padding: 20px; border-radius: 10px; }
+        .spin { width: 30px; height: 30px; border: 3px solid #333; border-top-color: #7ba2ff; border-radius: 50%; animation: s 1s infinite linear; }
+        @keyframes s { to { transform: rotate(360deg); } }
+        #ui { padding: 20px; height: 35vh; display: flex; flex-direction: column; background: #111; }
+        #msg { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+        .row { display: flex; gap: 10px; }
+        input { flex: 1; padding: 12px; border-radius: 20px; border: none; background: #222; color: #fff; }
+        button { padding: 0 20px; border-radius: 20px; border: none; background: #7ba2ff; color: #fff; }
     </style>
 </head>
 <body>
-
-<div id="video-container">
-    <video id="calebVideo" autoplay playsinline muted poster="https://raw.githubusercontent.com/ursalin/cal/main/mmexport1766446686555.jpg"></video>
-    <div id="loader"><div class="spinner"></div><p style="font-size:12px;margin-top:8px">正在准备视频...</p></div>
-</div>
-
-<div id="ui-layer">
-    <div id="chat-output">想跟哥说什么？</div>
-    <div class="input-box">
-        <input type="text" id="userInput" placeholder="输入消息...">
-        <button id="sendBtn">发送</button>
+    <div id="video-wrap">
+        <video id="v" playsinline muted poster="https://raw.githubusercontent.com/ursalin/cal/main/mmexport1766446686555.jpg"></video>
+        <div id="loader"><div class="spin"></div><p>哥在准备视频...</p></div>
     </div>
-</div>
+    <div id="ui">
+        <div id="msg">想跟哥哥说什么？</div>
+        <div class="row">
+            <input id="in" type="text" placeholder="输入...">
+            <button id="btn">发送</button>
+        </div>
+    </div>
 
-<script>
-    const video = document.getElementById('calebVideo');
-    const loader = document.getElementById('loader');
-    const output = document.getElementById('chat-output');
-
-    document.getElementById('sendBtn').onclick = async () => {
-        const text = document.getElementById('userInput').value;
-        if (!text) return;
-
-        // 强行开启圈圈
-        loader.style.display = 'flex';
-        output.innerText = "哥哥正在听...";
-
-        try {
-            const res = await fetch('/api/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text })
-            });
-            const data = await res.json();
-            output.innerText = data.reply;
-
-            if (data.event_id) {
-                pollVideo(data.event_id);
-            } else {
-                loader.style.display = 'none';
-            }
-        } catch (e) {
-            output.innerText = "信号不太好...";
-            loader.style.display = 'none';
-        }
-    };
-
-    async function pollVideo(id) {
-        const pollUrl = `https://kwai-kolors-liveportrait.hf.space/gradio_api/call/predict/${id}`;
+    <script>
+        const v = document.getElementById('v');
+        const l = document.getElementById('loader');
+        const m = document.getElementById('msg');
         
-        // 每隔 2 秒检查一次状态
-        const interval = setInterval(async () => {
-            try {
-                const response = await fetch(pollUrl);
-                const text = await response.text();
-                
-                // 关键：在返回的文本流中寻找视频链接
-                if (text.includes("data:")) {
-                    const match = text.match(/https?:\/\/[^"']+\.mp4/);
-                    if (match) {
-                        video.src = match[0];
-                        video.muted = false; // 尝试开启声音
-                        video.play().catch(() => {
-                            console.log("需要用户点击才能播放声音");
-                            video.muted = true; // 失败则继续静音播放
-                            video.play();
-                        });
-                        loader.style.display = 'none';
-                        clearInterval(interval);
-                    }
-                }
-            } catch (e) {
-                console.error("轮询中...");
-            }
-        }, 2000);
+        document.getElementById('btn').onclick = async () => {
+            const val = document.getElementById('in').value;
+            if(!val) return;
 
-        // 如果 60 秒还没成功，强制停止
-        setTimeout(() => clearInterval(interval), 60000);
-    }
-</script>
+            l.style.display = 'block'; // 强制点火：立刻转圈
+            m.innerText = "正在听...";
+
+            try {
+                const r = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: val })
+                });
+                const d = await r.json();
+                m.innerText = d.reply;
+
+                if (d.event_id) {
+                    startPoll(d.event_id);
+                } else {
+                    l.style.display = 'none';
+                }
+            } catch (err) {
+                m.innerText = "接口报错了: " + err.message;
+                l.style.display = 'none';
+            }
+        };
+
+        function startPoll(id) {
+            const timer = setInterval(async () => {
+                try {
+                    const res = await fetch(`https://kwai-kolors-liveportrait.hf.space/gradio_api/call/predict/${id}`);
+                    const txt = await res.text();
+                    if (txt.includes("data:")) {
+                        const mp4 = txt.match(/https?:\/\/[^"']+\.mp4/);
+                        if (mp4) {
+                            v.src = mp4[0];
+                            v.muted = false;
+                            v.play();
+                            l.style.display = 'none';
+                            clearInterval(timer);
+                        }
+                    }
+                } catch (e) {}
+            }, 2000);
+        }
+    </script>
 </body>
 </html>
