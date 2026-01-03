@@ -8,25 +8,25 @@
         body { margin: 0; background: #000; color: #fff; font-family: sans-serif; overflow: hidden; }
         #video-wrap { width: 100%; height: 60vh; position: relative; }
         video { width: 100%; height: 100%; object-fit: cover; background: url('https://raw.githubusercontent.com/ursalin/cal/main/mmexport1766446686555.jpg') center/cover; }
-        #loader { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); display: none; text-align: center; z-index: 10; background: rgba(0,0,0,0.6); padding: 20px; border-radius: 10px; }
-        .spin { width: 30px; height: 30px; border: 3px solid #333; border-top-color: #7ba2ff; border-radius: 50%; animation: s 1s infinite linear; }
+        #loader { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); display: none; text-align: center; z-index: 10; background: rgba(0,0,0,0.7); padding: 20px; border-radius: 12px; }
+        .spin { width: 35px; height: 35px; border: 4px solid #333; border-top-color: #7ba2ff; border-radius: 50%; animation: s 1s infinite linear; margin-bottom: 10px; }
         @keyframes s { to { transform: rotate(360deg); } }
         #ui { padding: 20px; height: 35vh; display: flex; flex-direction: column; background: #111; }
-        #msg { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+        #msg { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 18px; text-align: center; color: #eee; }
         .row { display: flex; gap: 10px; }
-        input { flex: 1; padding: 12px; border-radius: 20px; border: none; background: #222; color: #fff; }
-        button { padding: 0 20px; border-radius: 20px; border: none; background: #7ba2ff; color: #fff; }
+        input { flex: 1; padding: 12px 18px; border-radius: 25px; border: 1px solid #333; background: #222; color: #fff; outline: none; }
+        button { padding: 0 25px; border-radius: 25px; border: none; background: #7ba2ff; color: #fff; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
     <div id="video-wrap">
         <video id="v" playsinline muted poster="https://raw.githubusercontent.com/ursalin/cal/main/mmexport1766446686555.jpg"></video>
-        <div id="loader"><div class="spin"></div><p>哥在准备视频...</p></div>
+        <div id="loader"><div class="spin"></div><p id="lt">哥正在准备...</p></div>
     </div>
     <div id="ui">
         <div id="msg">想跟哥哥说什么？</div>
         <div class="row">
-            <input id="in" type="text" placeholder="输入...">
+            <input id="in" type="text" placeholder="给哥哥发消息...">
             <button id="btn">发送</button>
         </div>
     </div>
@@ -40,7 +40,7 @@
             const val = document.getElementById('in').value;
             if(!val) return;
 
-            l.style.display = 'block'; // 强制点火：立刻转圈
+            l.style.display = 'block'; 
             m.innerText = "正在听...";
 
             try {
@@ -50,6 +50,13 @@
                     body: JSON.stringify({ text: val })
                 });
                 const d = await r.json();
+                
+                if (d.error) {
+                    m.innerText = "出错了: " + d.error;
+                    l.style.display = 'none';
+                    return;
+                }
+
                 m.innerText = d.reply;
 
                 if (d.event_id) {
@@ -58,7 +65,7 @@
                     l.style.display = 'none';
                 }
             } catch (err) {
-                m.innerText = "接口报错了: " + err.message;
+                m.innerText = "连接失败，请稍后再试";
                 l.style.display = 'none';
             }
         };
@@ -67,19 +74,48 @@
             const timer = setInterval(async () => {
                 try {
                     const res = await fetch(`https://kwai-kolors-liveportrait.hf.space/gradio_api/call/predict/${id}`);
+                    if (!res.ok) return;
+
                     const txt = await res.text();
-                    if (txt.includes("data:")) {
-                        const mp4 = txt.match(/https?:\/\/[^"']+\.mp4/);
-                        if (mp4) {
-                            v.src = mp4[0];
-                            v.muted = false;
-                            v.play();
-                            l.style.display = 'none';
-                            clearInterval(timer);
+                    console.log("正在解析数据...");
+
+                    // 暴力匹配：在返回的所有字符中寻找 .mp4 链接
+                    // 只要包含 http 并且以 .mp4 结尾的一串字符，全抓出来
+                    const match = txt.match(/https?:\/\/[^"']+\.mp4/);
+                    
+                    if (match && match[0]) {
+                        console.log("找到视频地址:", match[0]);
+                        v.src = match[0];
+                        v.muted = false; // 尝试开启声音
+                        
+                        // 处理浏览器自动播放策略
+                        const playPromise = v.play();
+                        if (playPromise !== undefined) {
+                            playPromise.then(() => {
+                                l.style.display = 'none';
+                                clearInterval(timer);
+                            }).catch(error => {
+                                console.log("静音播放以绕过限制");
+                                v.muted = true;
+                                v.play();
+                                l.style.display = 'none';
+                                clearInterval(timer);
+                            });
                         }
                     }
-                } catch (e) {}
+                } catch (e) {
+                    console.error("轮询异常:", e);
+                }
             }, 2000);
+
+            // 45秒超时自动停止，防止死循环
+            setTimeout(() => {
+                if(l.style.display === 'block') {
+                    l.style.display = 'none';
+                    clearInterval(timer);
+                    m.innerText = "哥今天有点累，视频没捏出来...";
+                }
+            }, 45000);
         }
     </script>
 </body>
